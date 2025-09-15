@@ -1,72 +1,0 @@
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>ArabChat Pro</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <!-- شاشة الدخول -->
-  <section id="login">
-    <h1>شات الوطن العربي</h1>
-    <div class="card">
-      <label>الاسم (إنجليزي فقط)</label>
-      <input id="nick" placeholder="YourNick" inputmode="latin" autocapitalize="off" autocomplete="off" />
-
-      <details class="adminBox">
-        <summary>تسجيل دخول مشرف</summary>
-        <input id="adminUser" placeholder="اسم الأدمن" value="ArabAdmin" />
-        <input id="adminPass" placeholder="رمز الأدمن" type="password" />
-      </details>
-
-      <button id="joinBtn">دخول الغرفة</button>
-      <p class="hint">الأسماء العربية تتحول تلقائيًا إلى Guest.</p>
-    </div>
-  </section>
-
-  <!-- واجهة الدردشة -->
-  <section id="chat" class="hidden">
-    <header class="topbar">
-      <div class="title">#الوطن_العربي</div>
-      <button id="usersBtn" class="icon">👥</button>
-    </header>
-
-    <main id="messages" aria-live="polite"></main>
-
-    <!-- شريط الإدخال (ثابت) -->
-    <footer class="inputBar">
-      <input id="msg" placeholder="اكتب رسالة..." />
-      <button id="send">إرسال</button>
-    </footer>
-
-    <!-- لوحة المتواجدين -->
-    <aside id="usersPanel" class="sheet hidden">
-      <header>
-        <h3>المتواجدون</h3>
-        <button id="closeUsers" class="icon">✕</button>
-      </header>
-      <div id="usersList"></div>
-    </aside>
-
-    <!-- قائمة منبثقة عند الضغط على اسم -->
-    <div id="ctx" class="ctx hidden"></div>
-
-    <!-- نافذة الخاص -->
-    <aside id="pmPanel" class="sheet hidden">
-      <header>
-        <h3 id="pmWith">@</h3>
-        <button id="closePM" class="icon">✕</button>
-      </header>
-      <div id="pmLog" class="pmLog"></div>
-      <div class="pmInput">
-        <input id="pmText" placeholder="اكتب رسالة خاصة..." />
-        <button id="pmSend">إرسال</button>
-      </div>
-    </aside>
-  </section>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="client.js"></script>
-</body>
-</html>
