@@ -1,0 +1,111 @@
+:root{
+  --bg:#000;
+  --card:#0f0f10;
+  --bar:#0e0e12;
+  --c-user:#e6e6e6;
+  --c-admin:#ffcc66;
+  --c-info:#8dd3ff;
+  --accent:#32c864;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:system-ui, -apple-system, "Segoe UI", Arial;
+  background:var(--bg);
+  color:#fff;
+  overscroll-behavior-y:none;
+}
+
+/* شاشة الدخول */
+#login{
+  padding:32px 16px env(safe-area-inset-bottom);
+  max-width:520px;margin:0 auto;
+}
+#login h1{ text-align:center; margin:16px 0 24px }
+.card{
+  background:var(--card);
+  padding:16px; border-radius:12px;
+  display:grid; gap:10px;
+}
+.card input{
+  padding:12px;border:1px solid #222;border-radius:10px;background:#111;color:#fff
+}
+.card button{
+  padding:12px;border:0;border-radius:10px;background:var(--accent);color:#000;font-weight:700
+}
+.hint{opacity:.7;text-align:center}
+.adminBox summary{cursor:pointer;margin:6px 0}
+
+/* واجهة الشات */
+#chat{ height:100dvh; display:grid; grid-template-rows:auto 1fr auto }
+.topbar{
+  position:sticky;top:0;z-index:5;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 12px calc(12px + env(safe-area-inset-top));
+  background:var(--bar);border-bottom:1px solid #1a1a1a
+}
+.title{font-weight:700}
+
+#messages{
+  padding:12px; overflow:auto;
+  scroll-behavior:smooth;
+}
+.msg{ margin:6px 0; line-height:1.35 }
+.meta{
+  display:inline-flex;gap:6px;align-items:center;margin-inline-end:6px
+}
+.name{ font-weight:700; direction:ltr } /* الاسم من اليسار */
+.badge{font-size:12px; opacity:.8}
+.info{ color:var(--c-info) }
+
+.inputBar{
+  display:flex; gap:8px; align-items:center;
+  padding:8px 12px calc(8px + env(safe-area-inset-bottom));
+  background:var(--bar); border-top:1px solid #1a1a1a; position:sticky; bottom:0
+}
+.inputBar input{
+  flex:1; padding:12px;border-radius:12px;border:1px solid #222;background:#111;color:#fff
+}
+.inputBar button{
+  padding:12px 14px;border:0;border-radius:12px;background:var(--accent);color:#000;font-weight:700
+}
+
+/* لوحة متواجدين + PM */
+.sheet{
+  position:fixed; inset:auto 0 0 0;
+  background:rgba(0,0,0,.85); backdrop-filter: blur(6px);
+  border-top:1px solid #1a1a1a;
+  max-height:80%; display:flex; flex-direction:column;
+}
+.sheet.hidden{ display:none }
+.sheet header{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 12px; background:#0b0b0d
+}
+.icon{ background:#1a1a1a;color:#fff;border:0;border-radius:8px;padding:8px 10px }
+
+#usersList{ padding:10px; overflow:auto }
+.userRow{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:8px 10px; border-radius:10px; background:#111; margin-bottom:8px;
+}
+.userRow .nick{ direction:ltr } /* إظهار الاسم من اليسار */
+
+.pmLog{ padding:10px; height:40vh; overflow:auto; }
+.pmInput{ display:flex; gap:8px; padding:10px }
+.pmInput input{ flex:1; padding:10px; border-radius:10px; border:1px solid #222; background:#111; color:#fff }
+.pmInput button{ padding:10px 14px; border:0; border-radius:10px; background:var(--accent); color:#000; font-weight:700 }
+
+/* القائمة المنبثقة */
+.ctx{
+  position:fixed; background:#111; border:1px solid #222; border-radius:10px; padding:6px; z-index:20;
+  min-width:190px; box-shadow:0 10px 30px rgba(0,0,0,.5);
+}
+.ctx.hidden{ display:none }
+.ctx button{
+  display:block; width:100%; text-align:right; background:transparent; color:#fff; border:0;
+  padding:10px; border-radius:8px;
+}
+.ctx button:hover{ background:#1b1b1b }
