@@ -1,58 +1,64 @@
+// server.js — ArabChat Pro (fixed)
+// تشغيل: npm install && npm start
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
-const geoip = require("geoip-lite");
+let geoip;
+try { geoip = require("geoip-lite"); } catch { geoip = null; }
 
 const app = express();
+app.set("trust proxy", true); // ضروري خلف Render/Proxy لأخذ IP صحيح
+
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: { origin: process.env.ORIGIN || "*", methods: ["GET","POST"] }
 });
 
 const PORT = process.env.PORT || 10000;
-
-// بيانات الأدمن (غيرها من متغيرات البيئة على Render)
 const ADMIN_USER = process.env.ADMIN_USER || "ArabAdmin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "az77@";
 
-// ذاكرة مؤقتة
-const users = new Map();         // socket.id -> user
-const byNick = new Map();        // nick -> socket.id
-const bans = new Set();          // ip
-const mutes = new Set();         // ip
-const stars = new Set();         // nick
-const delegates = new Set();     // nick (~)
-const lastSeenByIP = new Map();  // ip -> timestamp
-const history = [];              // آخر 200 رسالة
+// ===== ذاكرة مؤقتة =====
+const users = new Map();        // socket.id -> user
+const byNick = new Map();       // nick -> socket.id
+const bans = new Set();         // ip
+const mutes = new Set();        // ip
+const stars = new Set();        // nick
+const delegates = new Set();    // nick (~)
+const lastSeenByIP = new Map(); // ip -> timestamp
+const history = [];             // آخر 200 رسالة
 
-function pushHistory(evt) {
+function pushHistory(evt){
   history.push(evt);
   if (history.length > 200) history.shift();
 }
-
-function sanitizeNick(nick) {
+function sanitizeNick(nick){
   if (!nick || typeof nick !== "string") nick = "";
-  // منع العربية – إن وجد عربي نحوله Guest####
   if (!/^[A-Za-z0-9_]{3,20}$/.test(nick)) {
-    return "Guest" + Math.floor(Math.random() * 9000 + 1000);
+    return "Guest" + Math.floor(Math.random()*9000+1000);
   }
   return nick;
 }
-
-function countryFromIP(ip) {
-  const g = geoip.lookup(ip);
-  return g?.country || "??";
+function ensureUniqueNick(clean){
+  if (!byNick.has(clean)) return clean;
+  let i = 2;
+  while (byNick.has(`${clean}_${i}`)) i++;
+  return `${clean}_${i}`;
 }
-
-function canShowJoinLeave(ip) {
+function countryFromIP(ip){
+  try {
+    const g = geoip?.lookup(ip);
+    return g?.country || "??";
+  } catch { return "??"; }
+}
+function canShowJoinLeave(ip){
   const now = Date.now();
   const last = lastSeenByIP.get(ip) || 0;
   lastSeenByIP.set(ip, now);
-  return (now - last) > 5 * 60 * 1000; // 5 دقائق
+  return (now - last) > 5*60*1000; // 5 دقائق
 }
-
-function broadcastUsers() {
+function broadcastUsers(){
   const list = [...users.values()].map(u => ({
     nick: u.nick,
     country: u.country,
@@ -63,29 +69,33 @@ function broadcastUsers() {
   io.emit("users", list);
 }
 
-app.get("/", (req, res) => {
+// صفحة العميل
+app.get("/", (_req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// Socket
+// ===== Socket =====
 io.on("connection", socket => {
-  const ip = (socket.handshake.headers["x-forwarded-for"] || socket.handshake.address || "").toString().split(",")[0].trim();
+  const raw = (socket.handshake.headers["x-forwarded-for"] || socket.handshake.address || "").toString();
+  const ip = raw.split(",")[0].trim();
 
   if (bans.has(ip)) {
     socket.emit("banned", "🚫 محظور من الدخول");
     return socket.disconnect();
   }
 
-  socket.on("login", ({ nick, admin, pass }) => {
-    const clean = sanitizeNick(nick);
-    const isAdmin = admin && (clean === ADMIN_USER) && (pass === ADMIN_PASS);
+  // تسجيل الدخول مع ACK لإرجاع حالة الأدمن للواجهة
+  socket.on("login", ({ nick, admin, pass }, ack) => {
+    let clean = sanitizeNick(nick);
+    clean = ensureUniqueNick(clean); // منع نكّين متماثلين
+    const isAdmin = !!(admin && (clean === ADMIN_USER) && (pass === ADMIN_PASS));
 
     const country = countryFromIP(ip);
-    const user = { id: socket.id, nick: clean, ip, country, admin: !!isAdmin };
+    const user = { id: socket.id, nick: clean, ip, country, admin: isAdmin };
     users.set(socket.id, user);
     byNick.set(clean, socket.id);
 
-    // أعطِ التاريخ للمستخدم الجديد
+    // التاريخ للمستخدم الجديد
     socket.emit("history", history);
 
     if (canShowJoinLeave(ip)) {
@@ -93,13 +103,16 @@ io.on("connection", socket => {
       io.emit("system", `✅ ${clean} دخل الغرفة [${country}]`);
     }
 
-    // رسالة "تم توكيل" عند دخول أدمن
     if (user.admin) {
       pushHistory({ type: "system", text: `ChanServ ${clean} تم توكيل` });
       io.emit("system", `ChanServ ${clean} تم توكيل`);
     }
 
     broadcastUsers();
+
+    if (typeof ack === "function") {
+      ack({ ok: true, user: { nick: user.nick, admin: user.admin } });
+    }
   });
 
   socket.on("msg", text => {
@@ -107,7 +120,12 @@ io.on("connection", socket => {
     if (!u) return;
     if (mutes.has(u.ip)) return; // مكتوم
 
-    const evt = { type: "msg", nick: u.nick, country: u.country, text: String(text || "").slice(0, 2000) };
+    const evt = {
+      type: "msg",
+      nick: u.nick,
+      country: u.country,
+      text: String(text || "").slice(0, 2000)
+    };
     pushHistory(evt);
     io.emit("msg", evt);
   });
@@ -131,40 +149,34 @@ io.on("connection", socket => {
     const t = targetId ? users.get(targetId) : null;
 
     switch (action) {
-      case "star":
-        stars.add(target); break;
-      case "unstar":
-        stars.delete(target); break;
-      case "delegate":
-        delegates.add(target); break;
-      case "undelegate":
-        delegates.delete(target); break;
-      case "mute":
-        if (t) mutes.add(t.ip); break;
-      case "unmute":
-        if (t) mutes.delete(t.ip); break;
+      case "star": stars.add(target); break;
+      case "unstar": stars.delete(target); break;
+      case "delegate": delegates.add(target); break;
+      case "undelegate": delegates.delete(target); break;
+      case "mute": if (t) mutes.add(t.ip); break;
+      case "unmute": if (t) mutes.delete(t.ip); break;
       case "kick":
-        if (t) io.to(t.id).emit("kicked", "تم طردك"); if (t) io.sockets.sockets.get(t.id)?.disconnect(true); break;
+        if (t) { io.to(t.id).emit("kicked", "تم طردك"); io.sockets.sockets.get(t.id)?.disconnect(true); }
+        break;
       case "ban":
         if (t) { bans.add(t.ip); io.to(t.id).emit("banned", "🚫 محظور"); io.sockets.sockets.get(t.id)?.disconnect(true); }
         break;
       case "unban":
-        // إزالة الحظر حسب IP يصل من واجهة whois
-        bans.delete(target); break;
+        bans.delete(target); // target هنا IP قادم من واجهة whois
+        break;
       case "clear":
         history.length = 0;
         io.emit("clear");
         pushHistory({ type: "system", text: "🧹 تم مسح السجل بواسطة المشرف" });
         io.emit("system", "🧹 تم مسح السجل بواسطة المشرف");
         break;
-      default:
-        return;
+      default: return;
     }
     broadcastUsers();
   });
 
   socket.on("whois", (nick) => {
-    const admin = users.get(socket.id)?.admin;
+    const meIsAdmin = users.get(socket.id)?.admin;
     const targetId = byNick.get(nick);
     const t = targetId ? users.get(targetId) : null;
     if (!t) return socket.emit("whois", { found: false });
@@ -173,7 +185,7 @@ io.on("connection", socket => {
       found: true,
       nick: t.nick,
       country: t.country,
-      ip: admin ? t.ip : undefined
+      ip: meIsAdmin ? t.ip : undefined
     });
   });
 
