@@ -10,47 +10,38 @@
     --bg:#0d0f13;--card:#151923;--muted:#6f7a8a;--accent:#3aa0ff;
     --ok:#19c37d;--warn:#ffcc00;--err:#ff5c5c;--line:#212837;
     --gold:#f5c542;--delegate:#8be9fd;
+    --composerH: 100px; /* يُضبط بالسكربت */
   }
   *{box-sizing:border-box}
   html,body{height:100%;margin:0}
-  body{
-    background:var(--bg);color:#e9edf5;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans",Tahoma,sans-serif;
-  }
-  .app{
-    height:100svh; /* iOS ثابت */
-    display:flex;flex-direction:column;
-    max-width:900px;margin:0 auto;
-    padding-bottom:env(safe-area-inset-bottom);
-  }
+  body{background:var(--bg);color:#e9edf5;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans",Tahoma,sans-serif}
+
+  .app{height:100svh;display:flex;flex-direction:column;max-width:900px;margin:0 auto;
+       padding-bottom:env(safe-area-inset-bottom)}
 
   /* شريط العنوان */
   .topbar{
     background:var(--card);border-bottom:1px solid var(--line);
     padding:10px 12px;display:flex;align-items:center;gap:10px;
-    position:sticky;top:0;z-index:5;
+    position:sticky;top:0;z-index:5
   }
   .title{font-weight:700}
-  .pill{margin-inline-start:auto;background:#0f131c;border:1px solid var(--line);padding:4px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
+  .pill{margin-inline-start:auto;background:#0f131c;border:1px solid var(--line);
+        padding:4px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
+  .toggleSide{background:#0f131c;border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:#e9edf5}
 
   /* منطقة المحتوى */
   .content{flex:1;display:flex;min-height:0}
-  .chat{
-    flex:1;display:flex;flex-direction:column;min-width:0;border-inline-end:1px solid var(--line);
-  }
-  .msgs{flex:1;overflow:auto;padding:10px;scroll-behavior:smooth}
+  .chat{flex:1;display:flex;flex-direction:column;min-width:0}
+  .msgs{flex:1;overflow:auto;padding:10px;scroll-behavior:smooth;padding-bottom:var(--composerH)}
   .sys{color:var(--muted);font-size:13px;margin:8px 0}
   .row{display:flex;gap:8px;align-items:flex-start;margin:6px 0}
   .flag{width:18px;height:12px;border:1px solid #0002;object-fit:cover;margin-top:3px}
-  .bubble{
-    background:#0f131c;border:1px solid var(--line);padding:8px 10px;border-radius:10px;max-width:100%;
-    word-break:break-word
-  }
+  .bubble{background:#0f131c;border:1px solid var(--line);padding:8px 10px;border-radius:10px;max-width:100%;word-break:break-word}
   .nick{font-weight:700;margin-inline-end:6px}
 
   /* قائمة المتواجدين */
-  .side{
-    width:220px;overflow:auto;background:#0f131c;
-  }
+  .side{flex:0 0 180px;width:180px;overflow:auto;background:#0f131c;border-inline-start:1px solid var(--line)}
   .side h4{margin:10px;font-size:14px;color:var(--muted)}
   .user{display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid #0b0e14;cursor:pointer}
   .user:hover{background:#101522}
@@ -68,6 +59,7 @@
   .btn{background:var(--accent);border:none;color:#fff;font-weight:700}
   .btn:active{opacity:.9}
   .grow{flex:1;min-width:0}
+  .adminOnly{display:none} /* تُظهر لاحقًا إذا أدمن */
 
   /* شاشة الدخول */
   .login{
@@ -88,14 +80,19 @@
   .delegName{color:var(--delegate)}
   .ok{color:var(--ok)} .err{color:var(--err)}
 
-  /* تحسين iOS */
-  @supports (position: sticky){ .msgs{scroll-padding-bottom:90px} }
+  /* وضع الجوال */
+  @media (max-width: 700px){
+    .side{ display:none; position:fixed; top:48px; right:0; height:auto; max-height:70vh;
+           width:80vw; z-index:8; box-shadow:0 10px 30px #0008; }
+    .app.show-side .side{ display:block; }
+  }
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app">
   <div class="topbar">
     <div class="title">💬 شات الوطن العربي</div>
+    <button id="toggleSide" class="toggleSide" title="المتواجدون">👥</button>
     <div class="pill" id="status">غير متصل</div>
   </div>
 
@@ -136,12 +133,12 @@
 <div class="sheet" id="sheet">
   <div>
     <div class="rowbtn" style="justify-content:center;font-weight:700" id="sheetTitle">الإجراءات</div>
-    <div class="rowbtn"><button id="star">⭐ نجمة</button><button id="unstar">☆ إزالة نجمة</button></div>
-    <div class="rowbtn"><button id="delegate">~ توكيل</button><button id="undelegate">إلغاء التوكيل</button></div>
-    <div class="rowbtn"><button id="mute">🔇 كتم</button><button id="unmute">🔊 فك الكتم</button></div>
-    <div class="rowbtn"><button id="kick">🚪 طرد</button><button id="ban">🚫 حظر IP</button></div>
+    <div class="rowbtn adminOnly"><button id="star">⭐ نجمة</button><button id="unstar">☆ إزالة نجمة</button></div>
+    <div class="rowbtn adminOnly"><button id="delegate">~ توكيل</button><button id="undelegate">إلغاء التوكيل</button></div>
+    <div class="rowbtn adminOnly"><button id="mute">🔇 كتم</button><button id="unmute">🔊 فك الكتم</button></div>
+    <div class="rowbtn adminOnly"><button id="kick">🚪 طرد</button><button id="ban">🚫 حظر IP</button></div>
     <div class="rowbtn"><button id="whois">🔍 كشف معلومات</button><button id="closeSheet">إغلاق</button></div>
-    <div class="rowbtn"><button id="clearAll" style="background:#333;color:#fff">🧹 مسح السجل</button></div>
+    <div class="rowbtn adminOnly"><button id="clearAll" style="background:#333;color:#fff">🧹 مسح السجل</button></div>
   </div>
 </div>
 
@@ -151,13 +148,30 @@
   const $ = id => document.getElementById(id);
 
   // عناصر
+  const appEl = $("app");
   const login = $("login"); const nickInp = $("nick");
   const adminUser = $("adminUser"); const adminPass = $("adminPass");
   const statusEl = $("status"); const msgs = $("msgs");
   const usersBox = $("users"); const text = $("text"); const to = $("to");
+  const composerEl = document.querySelector(".composer");
 
   const sheet = $("sheet"); let sheetTarget = null;
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  let ME = { nick: null, admin: false };
+
+  // زر إظهار/إخفاء المتواجدين على الجوال
+  $("toggleSide").onclick = ()=> appEl.classList.toggle("show-side");
+
+  // احسب ارتفاع شريط الكتابة وأضفه كمتغير CSS لعدم تغطية الرسائل
+  function setComposerHeightVar(){
+    const h = composerEl ? composerEl.offsetHeight : 90;
+    document.documentElement.style.setProperty("--composerH", (h + 16) + "px");
+  }
+  window.addEventListener("resize", setComposerHeightVar);
+  window.addEventListener("orientationchange", setComposerHeightVar);
+  setTimeout(setComposerHeightVar, 0);
+  setTimeout(setComposerHeightVar, 300);
 
   // إبقاء الكيبورد ظاهرًا بالآيفون وعدم اهتزاز الشاشة
   if (isIos){
@@ -166,11 +180,22 @@
     text.addEventListener("blur",()=>{document.body.style.height=""});
   }
 
+  // دخول مع ACK يرجع حالة الأدمن ويظهر أزراره فقط إن كان أدمن
   $("go").onclick = () => {
+    const wantAdmin = adminUser.value.trim() === nickInp.value.trim();
     socket.emit("login", {
       nick: nickInp.value.trim(),
-      admin: adminUser.value.trim() === nickInp.value.trim(),
+      admin: wantAdmin,
       pass: adminPass.value
+    }, (res) => {
+      if (res?.ok) {
+        ME = res.user || { nick: nickInp.value.trim(), admin: false };
+        document.querySelectorAll(".adminOnly").forEach(el=>{
+          el.style.display = ME.admin ? "" : "none";
+        });
+      } else {
+        alert("تعذر الدخول");
+      }
     });
   };
 
@@ -189,7 +214,7 @@
     if (isIos) setTimeout(()=>text.focus(), 0);
   }
 
-  // عرض التاريخ
+  // عرض التاريخ/الرسائل
   socket.on("history", list => list.forEach(drawEvent));
   socket.on("system", t => drawEvent({ type:"system", text:t }));
   socket.on("msg", drawEvent);
@@ -251,7 +276,10 @@
   }
   $("closeSheet").onclick = ()=> sheet.style.display="none";
 
-  const adminDo = (act) => socket.emit("admin:action", { action: act, target: sheetTarget });
+  const adminDo = (act) => {
+    if (!ME.admin) return alert("هذه الأدوات خاصة بالمشرف.");
+    socket.emit("admin:action", { action: act, target: sheetTarget });
+  };
   $("star").onclick = ()=>adminDo("star");
   $("unstar").onclick = ()=>adminDo("unstar");
   $("delegate").onclick = ()=>adminDo("delegate");
@@ -261,9 +289,7 @@
   $("kick").onclick = ()=>adminDo("kick");
   $("ban").onclick = ()=>adminDo("ban");
   $("clearAll").onclick = ()=>adminDo("clear");
-  $("whois").onclick = ()=>{
-    socket.emit("whois", sheetTarget);
-  };
+  $("whois").onclick = ()=> socket.emit("whois", sheetTarget);
 
   socket.on("whois", data => {
     if (!data?.found) return alert("غير موجود");
@@ -273,7 +299,7 @@
   socket.on("connect", ()=>{$("status").textContent="متصل";});
   socket.on("disconnect", ()=>{$("status").textContent="غير متصل";});
 
-  // إغلاق شاشة الدخول بعد أول Login ناجح
+  // إغلاق شاشة الدخول بعد أول History (نجاح الدخول)
   socket.on("history", ()=> login.style.display="none");
 
   // أدوات
