@@ -22,17 +22,22 @@
 
   .content{flex:1;display:flex;min-height:0}
   .chat{flex:1;display:flex;flex-direction:column;min-width:0;border-inline-end:1px solid var(--line)}
-  .tabs{display:flex;gap:6px;padding:8px;border-bottom:1px solid var(--line);background:#0f131c;position:sticky;top:44px;z-index:4}
+
+  /* Tabs */
+  .tabs{display:flex;gap:6px;padding:8px;border-bottom:1px solid var(--line);background:#0f131c;position:sticky;top:44px;z-index:4;flex-wrap:wrap}
   .tab{border:1px solid var(--line);background:#0f131c;border-radius:10px;padding:6px 10px;cursor:pointer;display:flex;align-items:center;gap:6px}
   .tab.active{outline:2px solid #264b78}
   .badge{min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;background:#e33;color:#fff;font-size:12px;padding:0 5px}
-  .closeX{opacity:.6}
+  .closeX{opacity:.7}
+
   .msgs{flex:1;overflow:auto;padding:10px;scroll-behavior:smooth;padding-bottom:var(--composerH)}
   .sys{color:var(--muted);font-size:13px;margin:8px 0}
   .row{display:flex;gap:8px;align-items:flex-start;margin:6px 0}
   .flag{width:18px;height:12px;border:1px solid #0002;object-fit:cover;margin-top:3px}
   .bubble{background:#0f131c;border:1px solid var(--line);padding:8px 10px;border-radius:10px;max-width:100%;word-break:break-word}
-  .nick{font-weight:700;margin-inline-end:6px}
+  .bubble .nick{font-weight:700;margin-inline-start:6px}  /* الاسم يسار الفقاعة (يأتي آخر النص RTL) */
+  .pm{border-color:#3a3f55;background:#121626}
+  .pm .nick{color:#8be9fd}
 
   .side{flex:0 0 180px;width:180px;overflow:auto;background:#0f131c;border-inline-start:1px solid var(--line)}
   .side h4{margin:10px;font-size:14px;color:var(--muted)}
@@ -92,19 +97,13 @@
   </div>
 </div>
 
-<!-- شاشة الدخول -->
+<!-- شاشة الدخول (بدون حقول أدمن) -->
 <div class="login" id="login">
   <div class="card">
     <h3 style="margin:0 0 6px">دخول</h3>
     <input id="nick" placeholder="الاسم الظاهر (إنجليزي فقط)">
-    <details>
-      <summary style="cursor:pointer;color:var(--muted)">تسجيل دخول مشرف</summary>
-      <input id="adminUser" placeholder="اسم الأدمن (افتراضي ArabAdmin)" value="ArabAdmin">
-      <input id="adminPass" placeholder="رمز الأدمن (افتراضي az77@)" value="az77@">
-      <div class="hint">لو الاسم محجوز، السيرفر يسترجعه للأدمن تلقائيًا.</div>
-    </details>
     <button id="go" class="btn">دخول الغرفة</button>
-    <div class="hint">يسمح فقط بحروف إنجليزية/أرقام (3-20). الأسماء العربية تتحول إلى Guest تلقائيًا.</div>
+    <div class="hint">الأسماء العربية تتحول إلى Guest تلقائيًا. إن كنت الأدمن، اكتب اسم الأدمن وسيُطلب منك الرمز.</div>
   </div>
 </div>
 
@@ -112,7 +111,7 @@
 <div class="sheet" id="sheet">
   <div>
     <div class="rowbtn" style="justify-content:center;font-weight:700" id="sheetTitle">الإجراءات</div>
-    <div class="rowbtn"><button id="copyName">📋 نسخ الاسم</button><button id="mention">@ رد بالمنشن</button></div>
+    <div class="rowbtn"><button id="copyName">📋 نسخ الاسم</button><button id="mention">@ منشن</button></div>
     <div class="rowbtn"><button id="openDM">📨 مرسال خاص</button><button id="closeSheet">إغلاق</button></div>
     <div class="rowbtn adminOnly"><button id="star">⭐ نجمة</button><button id="unstar">☆ إزالة نجمة</button></div>
     <div class="rowbtn adminOnly"><button id="delegate">~ توكيل</button><button id="undelegate">إلغاء التوكيل</button></div>
@@ -122,53 +121,51 @@
   </div>
 </div>
 
-<audio id="ding" preload="auto">
-  <source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA..." type="audio/mp3">
-</audio>
-
 <script>
-  // ====== Socket / Elements ======
+  // ===== Socket & Elements =====
   const socket = io({ transports:["websocket","polling"], reconnection:true, reconnectionDelay:800, reconnectionAttempts:Infinity });
   const $ = id => document.getElementById(id);
 
   const appEl = $("app"), login = $("login"), nickInp = $("nick");
-  const adminUser = $("adminUser"), adminPass = $("adminPass");
   const statusEl = $("status"), usersBox = $("users"), text = $("text");
   const sheet = $("sheet"); let sheetTarget = null;
-  const tabs = $("tabs"), views = $("views"); const ding = $("ding");
+  const tabs = $("tabs"), views = $("views");
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  let ME = { nick:null, admin:false };
-  let activeTab = "public";                 // "public" أو اسم المستخدم للـ DM
-  const tabMap = new Map();                 // tabId -> {btn, badge}
-  const viewMap = new Map();                // tabId -> div.msgs
-  const unread = new Map();                 // tabId -> count
 
-  // ====== UI Helpers ======
+  let ME = { nick:null, admin:false };
+  let activeTab = "public";
+  const tabMap = new Map();   // tabId -> {btn,badge}
+  const viewMap = new Map();  // tabId -> div.msgs
+  const unread = new Map();   // tabId -> count
+
+  // ===== Helpers =====
   $("toggleSide").onclick = ()=> appEl.classList.toggle("show-side");
+  function escapeHTML(s){ return String(s).replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
   function setComposerHeightVar(){
     const comp = document.querySelector(".composer");
     const h = comp ? comp.offsetHeight : 90;
     document.documentElement.style.setProperty("--composerH", (h+16)+"px");
   }
-  window.addEventListener("resize", setComposerHeightVar); window.addEventListener("orientationchange", setComposerHeightVar);
+  window.addEventListener("resize", setComposerHeightVar);
+  window.addEventListener("orientationchange", setComposerHeightVar);
   setTimeout(setComposerHeightVar,0); setTimeout(setComposerHeightVar,300);
-
   if (isIos){ text.setAttribute("enterkeyhint","send"); text.addEventListener("focus",()=>{document.body.style.height="100svh"}); text.addEventListener("blur",()=>{document.body.style.height=""}); }
 
-  function escapeHTML(s){ return String(s).replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
-
-  // ====== Tabs / Views ======
+  // ===== Tabs / Views =====
   function ensureTab(tabId, label){
     if (tabMap.has(tabId)) return;
-    // button
     const btn = document.createElement("button");
     btn.className = "tab"; btn.dataset.tab = tabId;
-    btn.innerHTML = `<span>${label}</span><span class="badge" style="display:none">0</span>${tabId!=="public"?'<span class="closeX">✖</span>':''}`;
+    btn.innerHTML = `<span>${label}</span><span class="badge" style="display:none">0</span><span class="closeX">✖</span>`;
     tabs.appendChild(btn);
     const badge = btn.querySelector(".badge");
     btn.onclick = (e)=>{
-      if (e.target.classList.contains("closeX") && tabId!=="public"){
-        // close DM
+      if (e.target.classList.contains("closeX")){
+        if (tabId === "public"){ // لا نحذف تبويب العام: ننظّف رسائله فقط
+          const v = viewMap.get("public"); if (v) v.innerHTML = "";
+          unread.set("public",0); badge.style.display="none"; badge.textContent="0";
+          return;
+        }
         const v = viewMap.get(tabId); if (v) v.remove();
         btn.remove(); tabMap.delete(tabId); viewMap.delete(tabId); unread.delete(tabId);
         if (activeTab === tabId) switchTab("public");
@@ -177,7 +174,6 @@
       switchTab(tabId);
     };
     tabMap.set(tabId,{btn,badge});
-    // view
     const view = document.createElement("div"); view.className="msgs"; view.style.display="none"; views.appendChild(view);
     viewMap.set(tabId, view);
   }
@@ -190,46 +186,46 @@
     }
     setComposerHeightVar();
   }
-  // init public tab
+  // init
   ensureTab("public","💬 العام"); switchTab("public");
 
-  // increment unread
   function addUnread(tabId){
     const n = (unread.get(tabId)||0)+1; unread.set(tabId,n);
     const t = tabMap.get(tabId); if (t){ t.badge.style.display="inline-flex"; t.badge.textContent = String(n); }
   }
 
-  // ====== Login ======
+  // ===== Login (بدون حقول أدمن ظاهرة) =====
   $("go").onclick = ()=>{
-    const wantAdmin = !!adminPass.value.trim();
-    socket.emit("login", {
-      nick: nickInp.value.trim(),
-      admin: wantAdmin,
-      adminNick: adminUser.value.trim(),
-      pass: adminPass.value
-    }, (res)=>{
+    const nick = nickInp.value.trim();
+    // إن كتب اسم الأدمن نفسه نطلب الرمز بسرّية
+    let payload = { nick, admin:false };
+    if (/^arabadmin$/i.test(nick)){ // عدّل الاسم هنا إذا غيّرته على السيرفر
+      const pass = prompt("أدخل رمز الأدمن:");
+      if (pass) payload = { nick, admin:true, adminNick:nick, pass };
+    }
+    socket.emit("login", payload, (res)=>{
       if (res && res.ok){
-        ME = res.user || { nick:nickInp.value.trim(), admin:false };
+        ME = res.user || { nick, admin:false };
         document.querySelectorAll(".adminOnly").forEach(el=> el.style.display = ME.admin ? "" : "none");
-        login.style.display = "none"; // أخفي شاشة الدخول فورًا
+        login.style.display = "none";
       } else {
-        alert("تعذر تسجيل الدخول. تأكد من الاسم وكلمة السر (لو تحاول أدمن).");
+        alert("تعذر تسجيل الدخول. تأكد من الاسم/الرمز إن كنت أدمن.");
       }
     });
   };
 
-  // ====== Sending ======
+  // ===== Send =====
   $("send").onclick = send;
   text.addEventListener("keydown", e=>{ if (e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } });
   function send(){
     const m = text.value.trim(); if (!m) return;
-    if (socket.disconnected){ alert("الاتصال غير متصل. سيتم المحاولة تلقائيًا…"); socket.connect(); return; }
+    if (socket.disconnected){ alert("الاتصال غير متصل. تتم إعادة المحاولة…"); socket.connect(); return; }
     if (activeTab==="public") socket.emit("msg", m);
     else socket.emit("pm", { to: activeTab, text: m });
     text.value=""; if (isIos) setTimeout(()=>text.focus(),0);
   }
 
-  // ====== Draw helpers ======
+  // ===== Draw helpers =====
   function drawSystem(tabId, t){
     const v = viewMap.get(tabId); if (!v) return;
     const div = document.createElement("div"); div.className="sys"; div.textContent = t; v.appendChild(div); v.scrollTop = v.scrollHeight;
@@ -239,23 +235,32 @@
     const row = document.createElement("div"); row.className="row";
     if (e.type==="msg"){
       row.innerHTML = `<img class="flag" alt="" src="https://flagcdn.com/24x18/${(e.country||"??").toLowerCase()}.png" onerror="this.style.visibility='hidden'">
-        <div class="bubble"><span class="nick">${e.nick}</span>${escapeHTML(e.text)}</div>`;
+        <div class="bubble">
+          ${escapeHTML(e.text)}
+          <span class="nick" data-nick="${e.nick}">${e.nick}</span>
+        </div>`;
     } else {
-      row.innerHTML = `<div class="bubble" style="border-color:#3a3f55;background:#121626">
-        <span class="nick" style="color:#8be9fd">[خاص ${e.from||"me"} → ${e.to||""}]</span> ${escapeHTML(e.text)}</div>`;
+      row.innerHTML = `<div class="bubble pm">
+          ${escapeHTML(e.text)}
+          <span class="nick" data-nick="${e.from||'me'}">[خاص ${e.from||"me"} → ${e.to||""}]</span>
+      </div>`;
     }
     v.appendChild(row); v.scrollTop = v.scrollHeight;
   }
 
-  // ====== Socket events ======
-  socket.on("connect", ()=>{ statusEl.textContent="متصل"; });
-  socket.on("disconnect", ()=>{ statusEl.textContent="غير متصل"; });
+  // فتح الورقة بالضغط على الاسم داخل الرسائل
+  views.addEventListener("click",(ev)=>{
+    const nickEl = ev.target.closest(".nick");
+    if (!nickEl) return;
+    const n = nickEl.dataset.nick || nickEl.textContent.trim().replace(/^\[خاص\s*|\].*$/g,"");
+    openSheet(n);
+  });
 
-  socket.on("connect_error", (e)=>{ console.error("connect_error:", e?.message||e); alert("تعذر الاتصال بالخادم. سيتم إعادة المحاولة."); });
-  socket.on("error", (e)=> console.error("socket error:", e));
+  // ===== Socket events =====
+  socket.on("connect", ()=>{ statusEl.textContent="متصل"; $("send").disabled=false; text.disabled=false; });
+  socket.on("disconnect", ()=>{ statusEl.textContent="غير متصل"; $("send").disabled=true; text.disabled=true; });
 
   socket.on("history", list=>{
-    // history كله للعام
     list.forEach(ev=>{
       if (ev.type==="system") drawSystem("public", ev.text);
       else if (ev.type==="msg") drawMsg("public", ev);
@@ -265,14 +270,12 @@
   socket.on("system", t => drawSystem("public", t));
   socket.on("msg", e => drawMsg("public", e));
 
-  // الخاص
   socket.on("pm", e=>{
     const other = e.from && e.from !== ME.nick ? e.from : (e.to && e.to !== ME.nick ? e.to : null);
     const tabId = other || "private";
     ensureTab(tabId, `🔒 ${tabId}`);
     drawMsg(tabId, { type:"pm", ...e });
-    if (activeTab !== tabId){ addUnread(tabId); try{ ding.play().catch(()=>{});}catch{} if (navigator.vibrate) navigator.vibrate(30); }
-    // افتح التبويب تلقائيًا أول مرة فقط
+    if (activeTab !== tabId){ addUnread(tabId); try{ navigator.vibrate && navigator.vibrate(30);}catch{} }
     if (!unread.has(tabId)) switchTab(tabId);
   });
 
@@ -296,7 +299,7 @@
   socket.on("kicked", msg=>{ alert(msg||"تم طردك"); location.reload(); });
   socket.on("banned", msg=>{ alert(msg||"محظور"); location.replace("about:blank"); });
 
-  // ====== Sheet actions ======
+  // ===== Sheet actions =====
   function openSheet(n){ sheetTarget=n; $("sheetTitle").textContent=`إجراءات: ${n}`; sheet.style.display="flex"; }
   $("closeSheet").onclick = ()=> sheet.style.display="none";
   $("copyName").onclick = async ()=>{ await navigator.clipboard.writeText(sheetTarget); alert("تم نسخ الاسم"); };
