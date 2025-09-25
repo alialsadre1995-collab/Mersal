@@ -1,4 +1,4 @@
-// server.js — ArabChat Pro (admin fix + mobile layout kept)
+// server.js — ArabChat Pro (إصلاح الأدمن + تحسينات الموبايل)
 // تشغيل: npm install && npm start
 const express = require("express");
 const http = require("http");
@@ -8,7 +8,7 @@ let geoip;
 try { geoip = require("geoip-lite"); } catch { geoip = null; }
 
 const app = express();
-app.set("trust proxy", true); // لأخذ IP صحيح خلف Render/Proxy
+app.set("trust proxy", true); // خلف Render/Proxy
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 10000;
 const ADMIN_USER = process.env.ADMIN_USER || "ArabAdmin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "az77@";
 
-// ===== ذاكرة مؤقتة =====
+// ====== ذاكرة مؤقتة ======
 const users = new Map();         // socket.id -> user
 const byNick = new Map();        // nick -> socket.id
 const bans = new Set();          // ip
@@ -40,7 +40,7 @@ function ensureUniqueNick(clean){
   while (byNick.has(`${clean}_${i}`)) i++;
   return `${clean}_${i}`;
 }
-function countryFromIP(ip){ try{ return geoip?.lookup(ip)?.country || "??"; } catch { return "??"; } }
+function countryFromIP(ip){ try { return geoip?.lookup(ip)?.country || "??"; } catch { return "??"; } }
 function canShowJoinLeave(ip){
   const now = Date.now(); const last = lastSeenByIP.get(ip) || 0;
   lastSeenByIP.set(ip, now);
@@ -54,26 +54,26 @@ function broadcastUsers(){
   io.emit("users", list);
 }
 
+// صفحة العميل
 app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "index.html")));
 
+// Socket.IO
 io.on("connection", socket => {
   const raw = (socket.handshake.headers["x-forwarded-for"] || socket.handshake.address || "").toString();
   const ip = raw.split(",")[0].trim();
 
   if (bans.has(ip)) { socket.emit("banned", "🚫 محظور من الدخول"); return socket.disconnect(); }
 
-  // تسجيل الدخول مع دعم adminNick + إصلاح فحص الأدمن
+  // تسجيل الدخول (يدعم adminNick) + ACK
   socket.on("login", ({ nick, admin, adminNick, pass }, ack) => {
-    // أسماء خام قبل أي تعديل
     const nickRaw = sanitizeNick(nick);
     const adminNameRaw = sanitizeNick(adminNick || nick);
-
     const willBeAdmin = !!(admin && adminNameRaw === ADMIN_USER && pass === ADMIN_PASS);
 
-    // اسم العرض النهائي (قد يضاف _2 إن محجوز)
+    // اسم العرض النهائي
     let displayNick = ensureUniqueNick(nickRaw);
 
-    // لو الأدمن صحيح لكن الاسم النهائي تغيّر، نسترجع الاسم المحجوز للأدمن
+    // لو الأدمن صحيح، خُذ الاسم الرسمي حتى لو محجوز
     if (willBeAdmin && displayNick !== ADMIN_USER) {
       const oldId = byNick.get(ADMIN_USER);
       if (oldId) {
@@ -83,7 +83,7 @@ io.on("connection", socket => {
         users.delete(oldId);
         byNick.delete(ADMIN_USER);
       }
-      displayNick = ADMIN_USER; // اسم العرض للأدمن
+      displayNick = ADMIN_USER;
     }
 
     const country = countryFromIP(ip);
@@ -95,30 +95,30 @@ io.on("connection", socket => {
     socket.emit("history", history);
 
     if (canShowJoinLeave(ip)) {
-      pushHistory({ type: "system", text: `✅ ${displayNick} دخل الغرفة [${country}]` });
+      pushHistory({ type:"system", text:`✅ ${displayNick} دخل الغرفة [${country}]` });
       io.emit("system", `✅ ${displayNick} دخل الغرفة [${country}]`);
     }
     if (user.admin) {
-      pushHistory({ type: "system", text: `ChanServ ${displayNick} تم توكيل` });
+      pushHistory({ type:"system", text:`ChanServ ${displayNick} تم توكيل` });
       io.emit("system", `ChanServ ${displayNick} تم توكيل`);
     }
 
     broadcastUsers();
 
-    if (typeof ack === "function") ack({ ok: true, user: { nick: user.nick, admin: user.admin } });
+    if (typeof ack === "function") ack({ ok:true, user:{ nick:user.nick, admin:user.admin } });
   });
 
   socket.on("msg", text => {
     const u = users.get(socket.id); if (!u) return;
     if (mutes.has(u.ip)) return;
-    const evt = { type: "msg", nick: u.nick, country: u.country, text: String(text||"").slice(0,2000) };
+    const evt = { type:"msg", nick:u.nick, country:u.country, text:String(text||"").slice(0,2000) };
     pushHistory(evt); io.emit("msg", evt);
   });
 
   socket.on("pm", ({ to, text }) => {
     const u = users.get(socket.id); if (!u) return;
     const toId = byNick.get(to); if (!toId) return;
-    const evt = { type: "pm", from: u.nick, to, text: String(text||"").slice(0,2000) };
+    const evt = { type:"pm", from:u.nick, to, text:String(text||"").slice(0,2000) };
     io.to(toId).emit("pm", evt); socket.emit("pm", evt);
   });
 
