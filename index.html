@@ -244,20 +244,22 @@
 
   /********************** تسجيل الدخول ************************/
   $("go").onclick = () => {
-    const wantAdmin = !!adminPass.value.trim(); // لو فيه باس نحاول كأدمن
+    const wantAdmin = !!adminPass.value.trim(); // لو في باس نحاول كأدمن
     socket.emit("login", {
       nick: nickInp.value.trim(),
       admin: wantAdmin,
       adminNick: adminUser.value.trim(),
       pass: adminPass.value
     }, (res) => {
-      if (res?.ok) {
+      if (res && res.ok) {
+        // ✅ نجاح: أخفِ شاشة الدخول فورًا
         ME = res.user || { nick: nickInp.value.trim(), admin: false };
         document.querySelectorAll(".adminOnly").forEach(el=>{
           el.style.display = ME.admin ? "" : "none";
         });
+        login.style.display = "none";
       } else {
-        alert("تعذر الدخول");
+        alert("تعذر تسجيل الدخول. تأكد من الاسم وكلمة السر (لو تحاول أدمن).");
       }
     });
   };
@@ -330,16 +332,22 @@
     alert(`الاسم: ${data.nick}\nالدولة: ${data.country}\n${data.ip ? "IP: "+data.ip : ""}`);
   });
 
-  /********************** حالة الاتصال ************************/
+  /********************** حالة الاتصال + أخطاء ************************/
   socket.on("connect", ()=>{ statusEl.textContent = "متصل"; });
   socket.on("disconnect", ()=>{ statusEl.textContent = "غير متصل"; });
+
+  socket.on("connect_error", (e)=> {
+    console.error("connect_error:", e?.message || e);
+    alert("تعذر الاتصال بالخادم. تحقق من الخدمة أو الشبكة.");
+  });
+  socket.on("error", (e)=> console.error("socket error:", e));
 
   /********************** أدوات ************************/
   function escapeHTML(s){
     return String(s).replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
   }
   
-  // fallback: لو فشل تحميل socket.io لأي سبب، أظهر شاشة الدخول ولا تترك الصفحة سوداء
+  // fallback: لو فشل تحميل socket.io لأي سبب، أظهر رسالة بديلة
   window.addEventListener('error', (e)=>{
     if (String(e?.message||'').includes('io is not defined')){
       document.querySelector('.app').style.display = 'none';
